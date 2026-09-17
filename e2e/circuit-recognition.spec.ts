@@ -7,7 +7,7 @@ const sample = (name: string) =>
 test("애매함 없는 PDF를 업로드하면 팝업 없이 회로가 자동으로 그려지고 시뮬레이션이 동작한다", async ({
   page,
 }) => {
-  await page.goto("/circuit");
+  await page.goto("/");
 
   await page.locator('input[type="file"]').setInputFiles(sample("sample_schematic.pdf"));
   await page.getByRole("button", { name: "PDF에서 회로 자동 Draw" }).click();
@@ -25,7 +25,7 @@ test("애매함 없는 PDF를 업로드하면 팝업 없이 회로가 자동으�
 test("MVP 범위 밖 IC는 배치되지 않고 미지원 목록에 표시되며, 나머지 소자는 그려진다", async ({
   page,
 }) => {
-  await page.goto("/circuit");
+  await page.goto("/");
 
   await page
     .locator('input[type="file"]')
