@@ -10,8 +10,8 @@
 
 ## Acceptance criteria
 
-- [ ] 확신이 낮은 소자가 있으면 팝업이 뜨고, 후보 선택·직접 입력·모르겠음 중 하나로 확정해야 해당 지점이 회로에 반영된다.
-- [ ] 같은 이미지에서 확신 있게 인식된 다른 소자들은 애매함 여부와 무관하게 정상적으로 함께 그려진다.
+- [x] 확신이 낮은 소자가 있으면 팝업이 뜨고, 후보 선택·직접 입력·모르겠음 중 하나로 확정해야 해당 지점이 회로에 반영된다.
+- [x] 같은 이미지에서 확신 있게 인식된 다른 소자들은 애매함 여부와 무관하게 정상적으로 함께 그려진다.
 
 ## Constraints
 
@@ -29,10 +29,11 @@ None.
 
 ## Status
 
-pending
+completed
 
 ## Execution
 
-- Verification: —
-- Blocker: —
-- Revision: —
+- Verification: `npx vitest run`(11 passed), `npx playwright test`(16 passed, 신규 `e2e/circuit-image-ambiguity.spec.ts` 3건 포함) 전부 통과. 확신 있는 배선 1개 + 애매한 라벨 소자 1개를 함께 담은 신규 fixture(`e2e/fixtures/mixed-confident-and-ambiguous.png`)로 후보 선택/직접 입력/모르겠음 세 경로 모두 확인. 첫 번째 테스트는 최종 회로의 압축 해제된 DSL에 배선(`w `) 라인이 실제로 포함되는지까지 확인해 AC2를 직접 검증했다.
+- Blocker: 없음.
+- Revision: 없음. 05번에서 이미 인식 결과를 `RecognitionEngine` 공통 인터페이스(components/ambiguous/openEndpoints)로 만들어뒀고, `CircuitWorkspace`의 애매함 팝업·해결·DSL 생성 흐름이 PDF 경로와 이미지 경로 양쪽에서 이미 완전히 공유되고 있어서, 이 태스크는 기존 UI/로직에 새 코드를 추가할 필요 없이 신규 fixture + e2e 테스트로 흐름을 검증하는 것만으로 완료됐다.
+- Review: 이 태스크의 diff는 신규 e2e 테스트 파일과 fixture 이미지뿐이라 `code-review low`의 테스트/fixture 제외 규칙상 리뷰할 비테스트 코드가 없음. 별도 리뷰 생략.
