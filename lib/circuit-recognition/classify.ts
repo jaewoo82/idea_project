@@ -546,7 +546,7 @@ function extractWires(segments: LineSegment[], ctx: ClassifyContext) {
  * legitimately single-post terminal (e.g. ground), so counting them here
  * would misreport intentional single-connection points as open ends.
  */
-function detectOpenEndpoints(components: RecognizedComponent[]): Point[] {
+export function detectOpenEndpoints(components: RecognizedComponent[]): Point[] {
   const pointKey = (p: Point) => `${Math.round(p.x)}:${Math.round(p.y)}`;
   const occurrences = new Map<string, number>();
   for (const c of components) {
