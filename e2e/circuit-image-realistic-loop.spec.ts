@@ -26,11 +26,13 @@ test("배선이 부품 기호에 맞닿은 현실적인 회로 캡쳐를 붙여�
 
   // 배선끼리, 그리고 배선과 부품 기호(저항 지그재그, 배터리)가 서로 맞닿아
   // 있는 실사 수준 회로라, 부품/라벨 잔여물이 애매함 팝업으로 여러 번 뜬다.
-  // 정확한 횟수에 의존하지 않고, 팝업이 남아있는 동안 "모르겠음"으로 넘긴다.
+  // 정확한 횟수에 의존하지 않고, 매번 첫 후보("저항")를 골라 실제 전기적
+  // 연결점을 가진 소자로 확정한다("모르겠음"은 placeholder라 연결점 정렬
+  // 검증에 쓸 수 없다).
   const heading = page.getByRole("heading", { name: /애매한 소자 확인/ });
   await expect(heading).toBeVisible({ timeout: 15000 });
   for (let i = 0; i < 20 && (await heading.count()) > 0; i++) {
-    await page.getByRole("button", { name: "모르겠음" }).click();
+    await page.getByRole("button", { name: "저항" }).click();
   }
   await expect(heading).toHaveCount(0);
 
@@ -40,7 +42,26 @@ test("배선이 부품 기호에 맞닿은 현실적인 회로 캡쳐를 붙여�
   const src = await iframe.getAttribute("src");
   const ctz = new URL(src!, "http://localhost").searchParams.get("ctz");
   const dslText = LZString.decompressFromEncodedURIComponent(ctz!);
-  const wireLines = dslText!.split("\n").filter((line) => line.startsWith("w "));
+  const lines = dslText!.split("\n");
+  const wireLines = lines.filter((line) => line.startsWith("w "));
   // 최소한 배선(연결선)은 생성돼야 한다는 것이 이 회귀 테스트의 핵심 기준이다.
   expect(wireLines.length).toBeGreaterThanOrEqual(3);
+
+  // 배선의 끝점과 저항으로 확정한 소자의 연결점이 좌표 단위로 실제 일치해야,
+  // CircuitJS 화면에서 서로 연결된 것으로 보인다("연결선 끝이 부품이랑
+  // 연결이 안 된다"는 사용자 보고를 직접 검증하는 부분).
+  const endpointKey = (x: string, y: string) => `${x},${y}`;
+  const wireEndpoints = new Set(
+    wireLines.flatMap((line) => {
+      const [, x1, y1, x2, y2] = line.split(" ");
+      return [endpointKey(x1, y1), endpointKey(x2, y2)];
+    })
+  );
+  const resistorLines = lines.filter((line) => line.startsWith("r "));
+  expect(resistorLines.length).toBeGreaterThan(0);
+  const resistorTouchesWire = resistorLines.some((line) => {
+    const [, x1, y1, x2, y2] = line.split(" ");
+    return wireEndpoints.has(endpointKey(x1, y1)) || wireEndpoints.has(endpointKey(x2, y2));
+  });
+  expect(resistorTouchesWire).toBe(true);
 });
