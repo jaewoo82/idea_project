@@ -97,6 +97,57 @@ function diagonalTerminals(b: InkBlob): [Point, Point] {
   ];
 }
 
+/** Distance from a point to a blob's bounding box (0 when inside/touching). */
+function distanceToBbox(p: Point, b: InkBlob): number {
+  const dx = Math.max(b.x0 - p.x, 0, p.x - b.x1);
+  const dy = Math.max(b.y0 - p.y, 0, p.y - b.y1);
+  return Math.hypot(dx, dy);
+}
+
+/** How far a wire's endpoint can sit from a blob's bbox and still count as
+ * "this wire connects to this blob". raster-lines.ts clears a
+ * MAX_WIRE_THICKNESS-ish band around each extracted wire, including at its
+ * endpoint, so the component's own ink starts a few pixels past the wire's
+ * raw endpoint coordinate rather than exactly at it. */
+const MAX_WIRE_ATTACH_DISTANCE = 12;
+
+/**
+ * An ambiguous blob's terminals should be where wires actually connect to
+ * it, not just its bounding box's diagonal corners — a component is rarely
+ * a filled rectangle, so those corners can sit well away from where a wire
+ * really touches it. Once resolved to a real component type, CircuitJS only
+ * shows it connected if its terminal coordinates match the wire's endpoint
+ * exactly, so snapping here directly fixes "wires that don't connect to the
+ * component" for anything the user resolves to a candidate type.
+ */
+function attachedTerminals(b: InkBlob, wireEndpoints: Point[]): [Point, Point] {
+  const nearby = wireEndpoints.filter((p) => distanceToBbox(p, b) <= MAX_WIRE_ATTACH_DISTANCE);
+  if (nearby.length >= 2) {
+    let best: [Point, Point] = [nearby[0], nearby[1]];
+    let bestDist = -1;
+    for (let i = 0; i < nearby.length; i++) {
+      for (let j = i + 1; j < nearby.length; j++) {
+        const d = Math.hypot(nearby[i].x - nearby[j].x, nearby[i].y - nearby[j].y);
+        if (d > bestDist) {
+          bestDist = d;
+          best = [nearby[i], nearby[j]];
+        }
+      }
+    }
+    return best;
+  }
+  const [corner0, corner1] = diagonalTerminals(b);
+  if (nearby.length === 1) {
+    const p = nearby[0];
+    const other =
+      Math.hypot(p.x - corner0.x, p.y - corner0.y) >= Math.hypot(p.x - corner1.x, p.y - corner1.y)
+        ? corner0
+        : corner1;
+    return [p, other];
+  }
+  return [corner0, corner1];
+}
+
 /**
  * Rule-based classification of a raster image's ink blobs into MVP
  * components, per docs/decisions/ai-assisted-recognition.md: only a sparse,
@@ -104,7 +155,11 @@ function diagonalTerminals(b: InkBlob): [Point, Point] {
  * Everything else is surfaced as ambiguous rather than guessed, since raster
  * shape recognition is inherently less reliable than the PDF vector path.
  */
-export function classifyInkBlobs(blobs: InkBlob[], words: OcrWord[]): RecognitionResult {
+export function classifyInkBlobs(
+  blobs: InkBlob[],
+  words: OcrWord[],
+  wireEndpoints: Point[] = []
+): RecognitionResult {
   const components: RecognizedComponent[] = [];
   const ambiguous: AmbiguousItem[] = [];
 
@@ -132,7 +187,7 @@ export function classifyInkBlobs(blobs: InkBlob[], words: OcrWord[]): Recognitio
       id: `amb-${blob.x0}-${blob.y0}`,
       candidateTypes: AMBIGUOUS_CANDIDATES,
       bbox: { x0: blob.x0, y0: blob.y0, x1: blob.x1, y1: blob.y1 },
-      terminals: diagonalTerminals(blob),
+      terminals: attachedTerminals(blob, wireEndpoints),
       label: nearestWordText(blob, words, Math.max(w, h) * 2),
     });
   }

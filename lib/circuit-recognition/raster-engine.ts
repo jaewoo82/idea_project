@@ -30,11 +30,12 @@ async function recognizeRasterBitmap(
   bitmap: Awaited<ReturnType<typeof decodeToBitmap>>
 ): Promise<RecognitionResult> {
   const { components: wires, remaining } = extractWireSegments(bitmap);
+  const wireEndpoints = wires.flatMap((w) => w.terminals);
   const [blobs, words] = await Promise.all([
     Promise.resolve(findInkBlobs(remaining)),
     recognizeWords(imageBytes),
   ]);
-  const blobResult = classifyInkBlobs(blobs, words);
+  const blobResult = classifyInkBlobs(blobs, words, wireEndpoints);
   const components = [...wires, ...blobResult.components];
 
   return {
