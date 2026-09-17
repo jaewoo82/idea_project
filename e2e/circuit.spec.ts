@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("회로 시뮬레이터 페이지에 CircuitJS1이 로드되고 기본 회로가 동작한다", async ({
   page,
 }) => {
-  await page.goto("/circuit");
+  await page.goto("/");
 
   await expect(
     page.getByRole("heading", { level: 1, name: "회로 시뮬레이터" })

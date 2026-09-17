@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 const fixture = (name: string) => path.join(process.cwd(), "e2e", "fixtures", name);
 
 async function uploadAmbiguousFixture(page: import("@playwright/test").Page) {
-  await page.goto("/circuit");
+  await page.goto("/");
   await page.locator('input[type="file"]').setInputFiles(fixture("ambiguous-triangle.pdf"));
   await page.getByRole("button", { name: "PDF에서 회로 자동 Draw" }).click();
   await expect(page.getByRole("heading", { name: /애매한 소자 확인/ })).toBeVisible({
