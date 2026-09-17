@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import LZString from "lz-string";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { CircuitAmbiguityDialog } from "@/components/circuit-ambiguity-dialog";
 import { CircuitViewer } from "@/components/circuit-viewer";
-import { buildCircuitDsl, type PlaceholderMark } from "@/lib/circuit-recognition/dsl";
+import { buildCircuitDsl, type GridSpace, type PlaceholderMark } from "@/lib/circuit-recognition/dsl";
 import type {
   AmbiguityResolution,
   AmbiguousItem,
@@ -24,7 +24,7 @@ interface RecognizeResponse {
   openEndpoints: Point[];
   hasAmbiguity: boolean;
   compressedCircuit: string;
-  pageHeight: number;
+  gridSpace: GridSpace;
   error?: string;
 }
 
@@ -74,7 +74,7 @@ function finalizeCircuit(
   const dslText = buildCircuitDsl(
     [...data.components, ...resolvedComponents],
     placeholders,
-    data.pageHeight
+    data.gridSpace
   );
 
   return {
@@ -98,48 +98,84 @@ export function CircuitWorkspace() {
   const [resolveIndex, setResolveIndex] = useState(0);
   const [resolutions, setResolutions] = useState<AmbiguityResolution[]>([]);
 
+  const recognize = useCallback(
+    async (endpoint: string, fieldName: string, blob: Blob | File) => {
+      setStatus("loading");
+      setErrorMessage(null);
+
+      const formData = new FormData();
+      formData.append(fieldName, blob);
+
+      try {
+        const res = await fetch(endpoint, { method: "POST", body: formData });
+        const data: RecognizeResponse = await res.json();
+
+        if (!res.ok) {
+          setStatus("error");
+          setErrorMessage(data.error ?? "분석하지 못했습니다.");
+          return;
+        }
+
+        setStatus("idle");
+        if (data.ambiguous.length > 0) {
+          setPending(data);
+          setPendingScope(scope);
+          setResolveIndex(0);
+          setResolutions([]);
+        } else {
+          setResult({
+            compressedCircuit: data.compressedCircuit,
+            unsupported: data.unsupported,
+            openEndpointCount: data.openEndpoints.length,
+            scope,
+          });
+        }
+      } catch {
+        setStatus("error");
+        setErrorMessage("업로드하는 중 오류가 발생했습니다.");
+      }
+    },
+    [scope]
+  );
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!file) return;
+    await recognize("/api/circuit/recognize", "pdf", file);
+  }
 
-    setStatus("loading");
-    setErrorMessage(null);
+  // Ctrl+V anywhere on the page (outside an editable field, e.g. the
+  // ambiguity dialog's custom-input box) pastes a clipboard image — most
+  // commonly a Windows Snipping Tool capture — through the same recognize →
+  // (ambiguity) → draw flow as a PDF upload.
+  useEffect(() => {
+    function handlePaste(e: ClipboardEvent) {
+      const target = e.target as HTMLElement | null;
+      const isEditable =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target?.isContentEditable;
+      if (isEditable) return;
 
-    const formData = new FormData();
-    formData.append("pdf", file);
+      const items = e.clipboardData?.items;
+      if (!items) return;
 
-    try {
-      const res = await fetch("/api/circuit/recognize", {
-        method: "POST",
-        body: formData,
-      });
-      const data: RecognizeResponse = await res.json();
-
-      if (!res.ok) {
+      const imageItem = Array.from(items).find((item) => item.type.startsWith("image/"));
+      if (!imageItem) {
         setStatus("error");
-        setErrorMessage(data.error ?? "PDF를 분석하지 못했습니다.");
+        setErrorMessage("클립보드에 이미지가 없습니다. 회로도를 캡쳐한 뒤 다시 붙여넣어 주세요.");
         return;
       }
 
-      setStatus("idle");
-      if (data.ambiguous.length > 0) {
-        setPending(data);
-        setPendingScope(scope);
-        setResolveIndex(0);
-        setResolutions([]);
-      } else {
-        setResult({
-          compressedCircuit: data.compressedCircuit,
-          unsupported: data.unsupported,
-          openEndpointCount: data.openEndpoints.length,
-          scope,
-        });
-      }
-    } catch {
-      setStatus("error");
-      setErrorMessage("PDF를 업로드하는 중 오류가 발생했습니다.");
+      const blob = imageItem.getAsFile();
+      if (!blob) return;
+      e.preventDefault();
+      void recognize("/api/circuit/recognize-image", "image", blob);
     }
-  }
+
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [recognize]);
 
   function handleResolve(resolution: AmbiguityResolution) {
     if (!pending) return;
@@ -193,6 +229,9 @@ export function CircuitWorkspace() {
         <Button type="submit" disabled={!file || status === "loading"}>
           {status === "loading" ? "분석 중..." : "PDF에서 회로 자동 Draw"}
         </Button>
+        <span className="text-sm text-muted-foreground">
+          또는 캡쳐한 회로도를 이 페이지에 Ctrl+V로 붙여넣으세요.
+        </span>
       </form>
 
       {errorMessage && (

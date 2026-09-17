@@ -28,11 +28,21 @@ interface GridMapper {
   (p: Point): Point;
 }
 
-/** Flips PDF's y-up page space to a top-left-origin, y-down grid and rounds to integers. */
-export function makeGridMapper(pageHeight: number): GridMapper {
+export interface GridSpace {
+  /** The source coordinate space's height (PDF page height, or image height in pixels). */
+  height: number;
+  /** PDF space is y-up, so it needs flipping to CircuitJS's y-down grid. A
+   * raster bitmap is already y-down (same convention as CircuitJS's own
+   * canvas), so it must NOT be flipped again. Defaults to true (PDF path). */
+  flipY?: boolean;
+}
+
+/** Maps a source coordinate space (PDF page or raster bitmap) onto a
+ * top-left-origin, y-down grid and rounds to integers. */
+export function makeGridMapper({ height, flipY = true }: GridSpace): GridMapper {
   return (p: Point) => ({
     x: Math.round(p.x),
-    y: Math.round(pageHeight - p.y),
+    y: Math.round(flipY ? height - p.y : p.y),
   });
 }
 
@@ -66,9 +76,9 @@ function dumpLine(component: RecognizedComponent, map: GridMapper): string {
 /** Converts recognized components into a CircuitJS-loadable circuit text (readCircuit format). */
 export function componentsToDslText(
   components: RecognizedComponent[],
-  pageHeight: number
+  space: GridSpace
 ): string {
-  const map = makeGridMapper(pageHeight);
+  const map = makeGridMapper(space);
   return components.map((c) => dumpLine(c, map)).join("\n");
 }
 
@@ -113,9 +123,9 @@ function placeholderDumpLine(mark: PlaceholderMark, map: GridMapper): string {
 export function buildCircuitDsl(
   components: RecognizedComponent[],
   placeholders: PlaceholderMark[],
-  pageHeight: number
+  space: GridSpace
 ): string {
-  const map = makeGridMapper(pageHeight);
+  const map = makeGridMapper(space);
   const lines = [
     ...components.map((c) => dumpLine(c, map)),
     ...placeholders.map((p) => placeholderDumpLine(p, map)),

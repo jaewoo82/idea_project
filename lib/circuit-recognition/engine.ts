@@ -1,7 +1,7 @@
 import LZString from "lz-string";
 
 import { classifyPageVectorData } from "./classify";
-import { componentsToDslText } from "./dsl";
+import { componentsToDslText, type GridSpace } from "./dsl";
 import { extractPageVectorData } from "./pdf-vector";
 import type { RecognitionEngine, RecognitionResult } from "./types";
 
@@ -11,9 +11,10 @@ export interface CircuitRecognitionOutcome extends RecognitionResult {
   /** `?ctz=` query value for injecting `dslText` into the CircuitJS iframe. */
   compressedCircuit: string;
   hasAmbiguity: boolean;
-  /** The PDF page's height, needed to map any later ambiguity resolution
-   * back into the same grid `dslText`/`compressedCircuit` already used. */
-  pageHeight: number;
+  /** The source coordinate space, needed to map any later ambiguity
+   * resolution back into the same grid `dslText`/`compressedCircuit` already
+   * used (see dsl.ts's GridSpace — PDF space is y-up, a raster bitmap isn't). */
+  gridSpace: GridSpace;
 }
 
 /**
@@ -34,13 +35,14 @@ export async function recognizeCircuitFromPdf(
 ): Promise<CircuitRecognitionOutcome> {
   const page = await extractPageVectorData(pdfBytes, pageNumber);
   const result = classifyPageVectorData(page);
-  const dslText = componentsToDslText(result.components, page.height);
+  const gridSpace: GridSpace = { height: page.height, flipY: true };
+  const dslText = componentsToDslText(result.components, gridSpace);
 
   return {
     ...result,
     dslText,
     compressedCircuit: LZString.compressToEncodedURIComponent(dslText),
     hasAmbiguity: result.ambiguous.length > 0,
-    pageHeight: page.height,
+    gridSpace,
   };
 }

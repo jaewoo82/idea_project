@@ -53,3 +53,7 @@ next-env.d.ts
 
 # local-only third-party reference clones (not part of the project itself)
 /reference
+
+# tesseract.js's Node worker caches its downloaded language data next to
+# process.cwd() by default (see lib/circuit-recognition/ocr-child.mjs)
+/eng.traineddata
