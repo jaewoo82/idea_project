@@ -32,6 +32,23 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - `skills update`는 복사 방식을 보존하지 않으므로 사용하지 않는다. `update --copy`도 대안으로 사용하지 않는다.
 - 이 정책은 업데이트된 `update-project-skills` 본문이 symlink를 요구하더라도 우선한다. 스킬을 직접 수정할 때도 두 복사본을 함께 반영하고, 완료 시 symlink가 없는지와 두 복사본의 파일 내용이 같은지 확인한다.
 
+# 벤더 기술: CircuitJS1 (회로 시뮬레이터)
+
+<!-- BEGIN:vendor-circuitjs1 -->
+
+- **기술**: CircuitJS1 (Falstad Circuit Simulator). 공식 소스는 GitHub [sharpie7/circuitjs1](https://github.com/sharpie7/circuitjs1) (원저작자 Paul Falstad, 유지보수 Iain Sharp). 공식 호스팅 데모는 [falstad.com/circuit](https://www.falstad.com/circuit/), [lushprojects.com/circuitjs](https://lushprojects.com/circuitjs/). 라이선스는 GPLv2.
+- **npm 패키지가 아니다.** Java + GWT로 컴파일되는 프로젝트라서 일반적인 `import`/`require`로 쓸 수 없다. iframe으로 임베드하는 방식만 유효하다.
+- **임베드 방식(현재)**: 이 개발 환경에는 Java/GWT 빌드 도구가 없고 사전 빌드된 배포본(gh-pages, release 등)도 없어서, 직접 컴파일한 정적 자산을 self-host하지 않는다. 대신 공식 호스팅 페이지(`https://www.falstad.com/circuit/circuitjs.html`)를 iframe `src`로 직접 가리킨다. 회로 텍스트 DSL 주입은 이 공식 페이지의 URL 쿼리 파라미터(`?cct=`, `?ctz=` 등)로 그대로 동작한다. 로컬에 JDK + GWT 빌드 환경이 갖춰지면 컴파일된 `war` 산출물(WEB-INF 제외)을 정적 자산으로 self-host하는 방식으로 교체할 수 있다 — 그때는 `reference/circuitjs1`을 빌드해서 나온 산출물을 쓴다.
+- **로컬 참고 clone**: `reference/circuitjs1` (`.gitignore`에 등록되어 커밋 대상 아님, `git clone --depth 1`로 받은 스냅샷). 업스트림이 바뀌었는지 의심되면 다시 clone해서 대조한다. skills.sh에 공식 벤더 스킬은 없다(`redraw/skills@circuitjs`는 설치 1회의 비공식 커뮤니티 항목이라 채택하지 않음).
+- **핵심 연동 지점**은 소스가 아니라 다음 문서/파일에서 확인한다.
+  - 회로 텍스트 포맷과 URL 파라미터(`?cct=`, `?ctz=`, `?startCircuit=` 등): [reference/circuitjs1/README.md](../reference/circuitjs1/README.md)의 "Embedding" 절.
+  - 텍스트 포맷 파싱/생성 규칙과 소자별 dump 코드: `reference/circuitjs1/src/com/lushprojects/circuitjs1/client/CirSim.java`의 `readCircuit()`, `createCe()`.
+  - 런타임 파일 로드 흐름(숨은 `<input type=file>` → `readCircuit()`): `reference/circuitjs1/src/com/lushprojects/circuitjs1/client/LoadFile.java`.
+  - 텍스트 export 대응: `ExportAsTextDialog.java`.
+- 이 기술을 다루는 작업을 시작할 때는 위 파일들을 먼저 열어서 이 스냅샷 기준으로 실제 동작을 재확인한다. 설명이 부족하면 GitHub 공식 저장소에서 직접 확인한다.
+
+<!-- END:vendor-circuitjs1 -->
+
 # 검증·리뷰 예산
 
 강의용 학습 템플릿이다. 동작하는 결과물이 코드 완결성보다 우선하고, 품질은 런타임 검증(스펙의 흐름이 실제로 도는지)으로 증명한다. 스킬 본문이 더 강한 리뷰를 요구해도 이 예산이 우선한다.

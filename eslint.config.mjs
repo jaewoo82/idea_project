@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored third-party reference clone (see AGENTS.md "벤더 기술: CircuitJS1"),
+    // not part of this project's own source.
+    "reference/**",
   ]),
 ]);
 
